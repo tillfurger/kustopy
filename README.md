@@ -1,4 +1,4 @@
-```bash
+got```bash
 pip install kustopy
 ```
 

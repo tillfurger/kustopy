@@ -14,6 +14,7 @@ setup(
     description="Use Azure Kusto Data and Azure Kusto Ingest in Python",
     long_description=README,
     long_description_content_type="text/markdown",
+    url="https://github.com/tillfurger/kustopy",
     author="Till Furger",
     author_email="till@furger.net",
     license="MIT",
