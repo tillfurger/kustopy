@@ -62,7 +62,7 @@ class PyKusto:
     def get_kdf(self, user_input):
         # Import the respective packages
         import pandas as pd
-        import databricks.koalas as ks
+        import koalas as ks
         from azure.kusto.data._models import KustoResultTable
         # Get the response of the query
         response = self.construct_query(user_input)
