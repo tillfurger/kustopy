@@ -3,9 +3,6 @@ from azure.kusto.data import KustoConnectionStringBuilder
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties, DataFormat
 from azure.kusto.data.helpers import dataframe_from_result_table
 from azure.kusto.data.exceptions import KustoServiceError
-from azure.kusto.data._models import KustoResultTable
-import koalas as ks
-import pandas as pd
 
 
 class PyKusto:
@@ -58,46 +55,8 @@ class PyKusto:
         return dataframe_from_result_table(response.primary_results[0]).drop(columns=['iris_id', 'iris_metadata'],
                                                                              errors='ignore')
 
-    # Transform the query output in a koalas DataFrame
-    def get_kdf(self, user_input):
-        # Import the respective packages
-        import pandas as pd
-        import koalas as ks
-        from azure.kusto.data._models import KustoResultTable
-        # Get the response of the query
-        response = self.construct_query(user_input)
-        table = response.primary_results[0]
-        # Check if there is a response
-        if not table:
-            raise ValueError()
-        # Check if response is a KustoResultTable
-        if not isinstance(table, KustoResultTable):
-            raise TypeError("Expected KustoResultTable got {}".format(type(table).__name__))
-        # Transform the response in a koalas DataFrame
-        columns = [col.column_name for col in table.columns]
-        pdf = pd.DataFrame(table.raw_rows, columns=columns).drop(columns=['iris_id', 'iris_metadata'], errors='ignore')
-        frame = ks.from_pandas(pdf)
-        # Fix Types
-        for col in table.columns[:-2]:
-            if col.column_type == "bool":
-                frame[col.column_name] = frame[col.column_name].astype(bool)
-            if col.column_type == "datetime":
-                frame[col.column_name] = pd.to_datetime(frame[col.column_name])
-            if col.column_type == "timespan":
-                frame[col.column_name] = frame[col.column_name].apply(to_pandas_timedelta)
-        return frame
-
-    # Replace koalas dataframe to pandas for database upload
-    def kdf_to_pdf(self, dataframe):
-        if isinstance(dataframe, ks.DataFrame):
-            return dataframe.to_pandas()
-        else:
-            return dataframe
-
     # Create strings for the "creat table" and "create table ingestion csv mapping" commands
     def ingestion_properties(self, dataframe):
-        # Replace koalas dataframe to pandas for database upload
-        dataframe = self.kdf_to_pdf(dataframe)
         columns_list = []
         csv_mapping_list = []
         # Translate pandas datatypes to kusto datatypes
@@ -143,8 +102,6 @@ class PyKusto:
 
     # Function to write tables to database
     def write_table(self, dataframe, tablename):
-        # Replace koalas dataframe to pandas for database upload
-        dataframe = self.kdf_to_pdf(dataframe)
         # Get the table creation commands
         columns_string, csv_mapping_string = self.ingestion_properties(dataframe)
         create_table_command = f'.create table {tablename} ({columns_string})'
@@ -166,8 +123,6 @@ class PyKusto:
 
     # Function to write and replace tables to database
     def write_replace_table(self, dataframe, tablename):
-        # Replace koalas dataframe to pandas for database upload
-        dataframe = self.kdf_to_pdf(dataframe)
         # First drop the table (and the mapping table)
         self.drop_table(tablename)
         # Then create and write the data to the table
