@@ -1,6 +1,6 @@
-#Getting started
+# Getting started
 
-##Installation and Import
+## Installation and Import
 ```bash
 pip install kustopy
 ```
@@ -9,7 +9,7 @@ pip install kustopy
 from kustopy import KustoPyClient as kpc
 ```
 ---
-###QueryClient
+### QueryClient
 ```python
 # Get login credential from Azure Vault
 client_id = dbutils.secrets.get(scope="ce5", key="adxClientId")
@@ -36,7 +36,7 @@ query_client.query_to_df('SampleTable | take 100 | where fruit=="apple"')
 ```
 
 ---
-###IngestionClient
+### IngestionClient
 
 ```python
 # Get login credential from Azure Vault
