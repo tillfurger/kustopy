@@ -11,7 +11,7 @@ README = (HERE / "README.md").read_text()
 setup(
     name="kustopy",
     version="1.0.18",
-    description="Query and Ingestion Client for Azure with Python",
+    description="Query and Ingestion Client for Azure using Python",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/tillfurger/kustopy",
