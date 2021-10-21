@@ -11,7 +11,7 @@ from kustopy import KustoPyClient as kpc
 ---
 ### QueryClient
 ```python
-# Get login credential from Azure Vault
+# Get login credentials from Azure Vault
 client_id = dbutils.secrets.get(scope="ce5", key="adxClientId")
 client_secret = dbutils.secrets.get(scope="ce5", key="adxClientSecret")
 tenant_id = dbutils.secrets.get(scope="ce5", key="adxTenantId")
@@ -26,7 +26,7 @@ query_client = kpc.QueryClient(cluster='https://sample.kusto.windows.net/',
 ```
 
 ```python
-# Query all tables available in database
+# Get list of all tables available in database
 query_client.get_table_names()
 ```
 
@@ -39,7 +39,7 @@ query_client.query_to_df('SampleTable | take 100 | where fruit=="apple"')
 ### IngestionClient
 
 ```python
-# Get login credential from Azure Vault
+# Get login credentials from Azure Vault
 client_id = dbutils.secrets.get(scope="ce5", key="adxClientId")
 client_secret = dbutils.secrets.get(scope="ce5", key="adxClientSecret")
 tenant_id = dbutils.secrets.get(scope="ce5", key="adxTenantId")
@@ -52,3 +52,5 @@ query_client = kpc.IngestionClient(cluster='https://sample.kusto.windows.net/',
                                    tenant_id=tenant_id,
                                    truncation=False)
 ```
+
+more coming ...
