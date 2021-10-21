@@ -7,25 +7,19 @@ from azure.kusto.data.exceptions import KustoServiceError
 
 class QueryClient:
 
-    def __init__(self, uri, database, client_id, client_secret, tenant_id, truncation=True):
+    def __init__(self, cluster, database, client_id, client_secret, tenant_id, truncation=True):
         # Define self variables
-        self.uri = uri
+        self.cluster = cluster
         self.database = database
         self.truncation = truncation
         self.client_id = client_id
         self.client_secret = client_secret
         self.tenant_id = tenant_id
 
-        # Add ingest uri
-        ingest_uri = self.uri.split('//')
-        ingest_uri.insert(1, '//ingest-')
-        self.ingest_uri = ''.join(ingest_uri)
-
         # Create client for queries
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.uri, self.client_id,
+        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.cluster, self.client_id,
                                                                                     self.client_secret, self.tenant_id)
         self.query_client = KustoClient(kcsb)
-
 
     # Function to construct a database query from user input (string)
     def construct_query(self, user_input):
@@ -49,35 +43,40 @@ class QueryClient:
                 raise Exception(e)
 
     # Transform the query output in a pandas DataFrame
-    def get_pdf(self, user_input):
+    def query_to_df(self, user_input):
         response = self.construct_query(user_input)
         return dataframe_from_result_table(response.primary_results[0]).drop(columns=['iris_id', 'iris_metadata'],
                                                                              errors='ignore')
 
+    def get_table_names(self):
+        get_tables_command = '.show tables'
+        response = self.query_client.execute_mgmt(self.database, get_tables_command)
+        return dataframe_from_result_table(response.primary_results[0])
+
 
 class IngestionClient:
 
-    def __init__(self, uri, database, client_id, client_secret, tenant_id, truncation=True):
+    def __init__(self, cluster, database, client_id, client_secret, tenant_id, truncation=True):
         # Define self variables
-        self.uri = uri
+        self.cluster = cluster
         self.database = database
         self.truncation = truncation
         self.client_id = client_id
         self.client_secret = client_secret
         self.tenant_id = tenant_id
 
-        # Add ingest uri
-        ingest_uri = self.uri.split('//')
-        ingest_uri.insert(1, '//ingest-')
-        self.ingest_uri = ''.join(ingest_uri)
+        # Add ingest cluster
+        ingest_cluster = self.cluster.split('//')
+        ingest_cluster.insert(1, '//ingest-')
+        self.ingest_cluster = ''.join(ingest_cluster)
 
         # Create client for queries
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.uri, self.client_id,
+        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.cluster, self.client_id,
                                                                                     self.client_secret, self.tenant_id)
         self.query_client = KustoClient(kcsb)
 
         # Create client for data ingestion
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.ingest_uri, self.client_id,
+        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.ingest_cluster, self.client_id,
                                                                                     self.client_secret, self.tenant_id)
         self.ingestion_client = QueuedIngestClient(kcsb)
 
