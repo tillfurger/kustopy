@@ -10,7 +10,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="kustopy",
-    version="1.0.18",
+    version="1.0.19",
     description="Query and Ingestion Client for Azure using Python",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -25,7 +25,7 @@ setup(
     ],
     packages=["kustopy"],
     include_package_data=True,
-    install_requires=["azure-kusto-data", "azure-kusto-ingest", "pandas", "koalas"],
+    install_requires=["azure-kusto-data", "azure-kusto-ingest", "pandas", "logging"],
     entry_points={
         "console_scripts": [
             "tillfurger=kustopy.__main__:main",

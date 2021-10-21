@@ -3,6 +3,7 @@ from azure.kusto.data import KustoConnectionStringBuilder
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties, DataFormat
 from azure.kusto.data.helpers import dataframe_from_result_table
 from azure.kusto.data.exceptions import KustoServiceError
+import logging
 
 
 class QueryClient:
@@ -47,7 +48,7 @@ class QueryClient:
         response = self.construct_query(user_input)
         return dataframe_from_result_table(response.primary_results[0]).drop(columns=['iris_id', 'iris_metadata'],
                                                                              errors='ignore')
-
+    # Get a dataframe of all tables in database
     def get_table_names(self):
         get_tables_command = '.show tables'
         response = self.query_client.execute_mgmt(self.database, get_tables_command)
@@ -112,18 +113,18 @@ class IngestionClient:
             try:
                 drop_mapping_table_command = f'.drop table {tablename} ingestion csv mapping "{tablename}_CSV_Mapping"'
                 response = self.query_client.execute_mgmt(self.database, drop_mapping_table_command)
-                print(f'Mapping table "{tablename}_CSV_Mapping" dropped.')
+                logging.info(f'Mapping table "{tablename}" dropped database "{self.database}".')
             except KustoServiceError as e:
                 raise Exception(e)
             try:
                 drop_table_command = f'.drop table {tablename}'
                 response = self.query_client.execute_mgmt(self.database, drop_table_command)
-                print(f'Table "{tablename}" dropped.')
+                logging.info(f'Table "{tablename}" dropped database "{self.database}".')
             except KustoServiceError as e:
                 raise Exception(e)
         # Else print that the table doesn't exist
         else:
-            print(f'Table "{tablename}" not in database.')
+            raise Exception(f'Table "{tablename}" does not exist in database "{self.database}".')
 
     # Function to write tables to database
     def write_table(self, dataframe, tablename):
@@ -142,7 +143,7 @@ class IngestionClient:
             ingestion_properties = IngestionProperties(database=self.database, table=tablename,
                                                        data_format=DataFormat.CSV)
             self.ingestion_client.ingest_from_dataframe(dataframe, ingestion_properties=ingestion_properties)
-            return print(f'Table "{tablename}" successfully created by the following command: {create_table_command}')
+            return logging.info(f'Table "{tablename}" successfully created by the following command: {create_table_command}')
         except KustoServiceError as e:
             raise e
 
