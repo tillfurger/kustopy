@@ -1,3 +1,17 @@
+Metadata-Version: 2.1
+Name: kustopy
+Version: 1.1.0
+Summary: Query and Ingestion Client for Azure using Python
+Home-page: https://github.com/tillfurger/kustopy
+Author: Till Furger
+Author-email: till@furger.net
+License: MIT
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Description-Content-Type: text/markdown
+
 # Getting started
 kustopy is a Python SDK for Azure Data Explorer (Kusto).
 
@@ -57,6 +71,3 @@ kusto_client.write_table(dataframe=df, tablename='SampleTable')
 kusto_client.write_replace_table(dataframe=df, tablename='SampleTable')
 ```
 
-If you want to append data to an existing table, we recommend querying the table to a pandas dataframe using
-```.query_to_df()```, doing the transformations within pandas and use ```.write_replace_table()``` to overwrite the 
-existing table in the database. This gives you full access to the powerful functions of pandas.
