@@ -107,13 +107,40 @@ class Client:
                 drop_mapping_table_command = f'.drop table {tablename} ingestion csv mapping "{tablename}_CSV_Mapping"'
                 response = self.query_client.execute_mgmt(self.database, drop_mapping_table_command)
             except KustoServiceError as e:
-                logging.warning(e)
+                logging.info('No Mapping table to delete. Continuing...')
             try:
                 drop_table_command = f'.drop table {tablename}'
                 response = self.query_client.execute_mgmt(self.database, drop_table_command)
                 logging.info(f'Table "{tablename}" dropped from database "{self.database}".')
             except KustoServiceError as e:
                 raise Exception(e)
+        # Else print that the table doesn't exist
+        else:
+            tables_list = dataframe_from_result_table(response.primary_results[0])['TableName'].to_list()
+            raise FileNotFoundError(
+                f"Table '{tablename}' does not exist in database '{self.database}'. Choose one of {tables_list}")
+
+    # Function to drop duplicates from table
+    def drop_duplicates(self, tablename):
+        # Helper function to remove values from list
+        def remove_all_by_values(list_obj, values):
+            for value in values:
+                while value in list_obj:
+                    list_obj.remove(value)
+
+        # Check if table exists
+        table_exists, response = self.check_if_exists(tablename)
+        # If the entered table exists, drop it
+        if table_exists:
+            # We only want to get the distinct data to be able to get distinct data, we need to drop the two iris columns
+            columns_to_query = self.query_to_df(f'{tablename} | getschema')['ColumnName'].to_list()
+            remove_all_by_values(columns_to_query, ['iris_id', 'iris_metadata'])
+            columns_to_query = ', '.join(columns_to_query)
+            try:
+                df = self.query_to_df(f'{tablename} | distinct {columns_to_query}')
+                self.write_replace_table(df, tablename)
+            except KustoServiceError as e:
+                logging.warning(e)
         # Else print that the table doesn't exist
         else:
             tables_list = dataframe_from_result_table(response.primary_results[0])['TableName'].to_list()

@@ -19,23 +19,23 @@ client_secret = dbutils.secrets.get(scope="ce5", key="adxClientSecret")
 tenant_id = dbutils.secrets.get(scope="ce5", key="adxTenantId")
 
 # Set up the query client
-kusto_client = kpc.Client(cluster='https://sample.kusto.windows.net/',
-                          database='confidential-satanalytics-sample',
-                          client_id=client_id,
-                          client_secret=client_secret,
-                          tenant_id=tenant_id,
-                          truncation=False)
+client = kpc.Client(cluster='https://sample.kusto.windows.net/',
+                    database='confidential-satanalytics-sample',
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    tenant_id=tenant_id,
+                    truncation=False)
 ```
 ---
 ### Queries
 ```python
 # Get list of all tables available in database
-kusto_client.get_table_names()
+client.get_table_names()
 ```
 
 ```python
 # Write kusto queries to get data into pandas dataframe
-kusto_client.query_to_df(user_input='SampleTable | take 100 | where fruit=="apple"')
+client.query_to_df(user_input='SampleTable | take 100 | where fruit=="apple"')
 ```
 
 ---
@@ -44,17 +44,22 @@ kusto_client.query_to_df(user_input='SampleTable | take 100 | where fruit=="appl
 
 ```python
 # Drop table from the database
-kusto_client.drop_table(tablename='SampleTable')
+client.drop_table(tablename='SampleTable')
+```
+
+```python
+# Drop table from the database
+client.drop_dublicates(tablename='SampleTable')
 ```
 
 ```python
 # Write pandas dataframe to the database. If the table exists you will get an Error.
-kusto_client.write_table(dataframe=df, tablename='SampleTable')
+client.write_table(dataframe=df, tablename='SampleTable')
 ```
 
 ```python
 # Write pandas dataframe to the database. If the table exists it will be replaced.
-kusto_client.write_replace_table(dataframe=df, tablename='SampleTable')
+client.write_replace_table(dataframe=df, tablename='SampleTable')
 ```
 
 If you want to append data to an existing table, we recommend querying the table to a pandas dataframe using
