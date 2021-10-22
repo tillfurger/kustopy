@@ -6,7 +6,7 @@ from azure.kusto.data.exceptions import KustoServiceError
 import logging
 
 
-class QueryClient:
+class Client:
 
     def __init__(self, cluster, database, client_id, client_secret, tenant_id, truncation=True):
         # Define self variables
@@ -17,11 +17,22 @@ class QueryClient:
         self.client_secret = client_secret
         self.tenant_id = tenant_id
 
+        # Add ingest cluster
+        ingest_cluster = self.cluster.split('//')
+        ingest_cluster.insert(1, '//ingest-')
+        self.ingest_cluster = ''.join(ingest_cluster)
+
         # Create client for queries
         kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.cluster, self.client_id,
                                                                                     self.client_secret, self.tenant_id)
         self.query_client = KustoClient(kcsb)
 
+        # Create client for data ingestion
+        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.ingest_cluster, self.client_id,
+                                                                                    self.client_secret, self.tenant_id)
+        self.ingestion_client = QueuedIngestClient(kcsb)
+
+    # -----------------------------------------QUERY-----------------------------------------
 
     # Function to construct a database query from user input (string)
     def construct_query(self, user_input):
@@ -49,38 +60,14 @@ class QueryClient:
         response = self.construct_query(user_input)
         return dataframe_from_result_table(response.primary_results[0]).drop(columns=['iris_id', 'iris_metadata'],
                                                                              errors='ignore')
+
     # Get a dataframe of all tables in database
     def get_table_names(self):
         get_tables_command = '.show tables'
         response = self.query_client.execute_mgmt(self.database, get_tables_command)
         return dataframe_from_result_table(response.primary_results[0])
 
-
-class IngestionClient:
-
-    def __init__(self, cluster, database, client_id, client_secret, tenant_id, truncation=True):
-        # Define self variables
-        self.cluster = cluster
-        self.database = database
-        self.truncation = truncation
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.tenant_id = tenant_id
-
-        # Add ingest cluster
-        ingest_cluster = self.cluster.split('//')
-        ingest_cluster.insert(1, '//ingest-')
-        self.ingest_cluster = ''.join(ingest_cluster)
-
-        # Create client for queries
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.cluster, self.client_id,
-                                                                                    self.client_secret, self.tenant_id)
-        self.query_client = KustoClient(kcsb)
-
-        # Create client for data ingestion
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.ingest_cluster, self.client_id,
-                                                                                    self.client_secret, self.tenant_id)
-        self.ingestion_client = QueuedIngestClient(kcsb)
+    # -----------------------------------------INGESTION-----------------------------------------
 
     # Create strings for the "creat table" and "create table ingestion csv mapping" commands
     def ingestion_properties(self, dataframe):
@@ -103,12 +90,16 @@ class IngestionClient:
         csv_mapping_string = ', '.join(csv_mapping_list)
         return columns_string, csv_mapping_string
 
-    # Function to drop tables from database
-    def drop_table(self, tablename):
-        # Get all the tables in the database
+    def check_if_exists(self, tablename):
         get_tables_command = '.show tables'
         response = self.query_client.execute_mgmt(self.database, get_tables_command)
         table_exists = any(dataframe_from_result_table(response.primary_results[0])['TableName'] == tablename)
+        return table_exists, response
+
+    # Function to drop tables from database
+    def drop_table(self, tablename):
+        # Check if table exists
+        table_exists, response = self.check_if_exists(tablename)
         # If the entered table exists, drop it
         if table_exists:
             try:
@@ -125,7 +116,8 @@ class IngestionClient:
         # Else print that the table doesn't exist
         else:
             tables_list = dataframe_from_result_table(response.primary_results[0])['TableName'].to_list()
-            raise FileNotFoundError(f"Table '{tablename}' does not exist in database '{self.database}'. Choose one of {tables_list}")
+            raise FileNotFoundError(
+                f"Table '{tablename}' does not exist in database '{self.database}'. Choose one of {tables_list}")
 
     # Function to write tables to database
     def write_table(self, dataframe, tablename):
@@ -134,11 +126,10 @@ class IngestionClient:
         create_table_command = f'.create table {tablename} ({columns_string})'
         create_mapping_command = f'.create table {tablename} ingestion csv mapping \'{tablename}_CSV_Mapping\' \'[{csv_mapping_string}]\''
         # Check if table already exists
-        get_tables_command = '.show tables'
-        response = self.query_client.execute_mgmt(self.database, get_tables_command)
-        table_exists = any(dataframe_from_result_table(response.primary_results[0])['TableName'] == tablename)
+        table_exists, response = self.check_if_exists(tablename)
         if table_exists:
-            raise Exception(f"Table '{tablename}' already exists in database '{self.database}'. If you want to replace the table use write_replace_table().")
+            raise Exception(
+                f"Table '{tablename}' already exists in database '{self.database}'. If you want to replace the table use write_replace_table().")
         else:
             try:
                 # Create the table
@@ -149,9 +140,10 @@ class IngestionClient:
                 response_df_mapping = dataframe_from_result_table(response.primary_results[0])
                 # Add the data
                 ingestion_properties = IngestionProperties(database=self.database, table=tablename,
-                                                         data_format=DataFormat.CSV)
+                                                           data_format=DataFormat.CSV)
                 self.ingestion_client.ingest_from_dataframe(dataframe, ingestion_properties=ingestion_properties)
-                return logging.info(f"Table '{tablename}' successfully created by the following command: {create_table_command}")
+                return logging.info(
+                    f"Table '{tablename}' successfully created by the following command: {create_table_command}")
             except KustoServiceError as e:
                 raise e
 
@@ -165,3 +157,15 @@ class IngestionClient:
         except FileNotFoundError:
             self.write_table(dataframe, tablename)
             logging.info(f"Table '{tablename}' newly ingested into '{self.database}'.")
+
+    # Function to append data to an existing table
+    def append_data(self, dataframe, tablename, allow_duplicated=False):
+        table_exists, response = self.check_if_exists(tablename)
+        if table_exists:
+            existing_df = self.query_to_df(f'set notruncation; {tablename}')
+            append_command = ''
+            response = self.query_client.execute_mgmt(self.database, append_command)
+            return existing_df
+        else:
+            raise Exception(
+                f"Table '{tablename}' does not exist in database '{self.database}'. If you want to create a new table use write_table().")
