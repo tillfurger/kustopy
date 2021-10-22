@@ -157,15 +157,3 @@ class Client:
         except FileNotFoundError:
             self.write_table(dataframe, tablename)
             logging.info(f"Table '{tablename}' newly ingested into '{self.database}'.")
-
-    # Function to append data to an existing table
-    def append_data(self, dataframe, tablename, allow_duplicated=False):
-        table_exists, response = self.check_if_exists(tablename)
-        if table_exists:
-            existing_df = self.query_to_df(f'set notruncation; {tablename}')
-            append_command = ''
-            response = self.query_client.execute_mgmt(self.database, append_command)
-            return existing_df
-        else:
-            raise Exception(
-                f"Table '{tablename}' does not exist in database '{self.database}'. If you want to create a new table use write_table().")
