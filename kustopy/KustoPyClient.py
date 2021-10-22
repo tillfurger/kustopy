@@ -22,6 +22,7 @@ class QueryClient:
                                                                                     self.client_secret, self.tenant_id)
         self.query_client = KustoClient(kcsb)
 
+
     # Function to construct a database query from user input (string)
     def construct_query(self, user_input):
         # If truncation is set to True the user input can be passed right trough
@@ -113,18 +114,18 @@ class IngestionClient:
             try:
                 drop_mapping_table_command = f'.drop table {tablename} ingestion csv mapping "{tablename}_CSV_Mapping"'
                 response = self.query_client.execute_mgmt(self.database, drop_mapping_table_command)
-                logging.info(f'Mapping table "{tablename}" dropped database "{self.database}".')
             except KustoServiceError as e:
-                raise Exception(e)
+                logging.warning(e)
             try:
                 drop_table_command = f'.drop table {tablename}'
                 response = self.query_client.execute_mgmt(self.database, drop_table_command)
-                logging.info(f'Table "{tablename}" dropped database "{self.database}".')
+                logging.info(f'Table "{tablename}" dropped from database "{self.database}".')
             except KustoServiceError as e:
                 raise Exception(e)
         # Else print that the table doesn't exist
         else:
-            raise Exception(f'Table "{tablename}" does not exist in database "{self.database}".')
+            tables_list = dataframe_from_result_table(response.primary_results[0])['TableName'].to_list()
+            raise FileNotFoundError(f"Table '{tablename}' does not exist in database '{self.database}'. Choose one of {tables_list}")
 
     # Function to write tables to database
     def write_table(self, dataframe, tablename):
@@ -132,24 +133,35 @@ class IngestionClient:
         columns_string, csv_mapping_string = self.ingestion_properties(dataframe)
         create_table_command = f'.create table {tablename} ({columns_string})'
         create_mapping_command = f'.create table {tablename} ingestion csv mapping \'{tablename}_CSV_Mapping\' \'[{csv_mapping_string}]\''
-        try:
-            # Create the table
-            response = self.query_client.execute_mgmt(self.database, create_table_command)
-            response_df_table = dataframe_from_result_table(response.primary_results[0])
-            # Create the mapping table
-            response = self.query_client.execute_mgmt(self.database, create_mapping_command)
-            response_df_mapping = dataframe_from_result_table(response.primary_results[0])
-            # Add the data
-            ingestion_properties = IngestionProperties(database=self.database, table=tablename,
-                                                       data_format=DataFormat.CSV)
-            self.ingestion_client.ingest_from_dataframe(dataframe, ingestion_properties=ingestion_properties)
-            return logging.info(f'Table "{tablename}" successfully created by the following command: {create_table_command}')
-        except KustoServiceError as e:
-            raise e
+        # Check if table already exists
+        get_tables_command = '.show tables'
+        response = self.query_client.execute_mgmt(self.database, get_tables_command)
+        table_exists = any(dataframe_from_result_table(response.primary_results[0])['TableName'] == tablename)
+        if table_exists:
+            raise Exception(f"Table '{tablename}' already exists in database '{self.database}'. If you want to replace the table use write_replace_table().")
+        else:
+            try:
+                # Create the table
+                response = self.query_client.execute_mgmt(self.database, create_table_command)
+                response_df_table = dataframe_from_result_table(response.primary_results[0])
+                # Create the mapping table
+                response = self.query_client.execute_mgmt(self.database, create_mapping_command)
+                response_df_mapping = dataframe_from_result_table(response.primary_results[0])
+                # Add the data
+                ingestion_properties = IngestionProperties(database=self.database, table=tablename,
+                                                         data_format=DataFormat.CSV)
+                self.ingestion_client.ingest_from_dataframe(dataframe, ingestion_properties=ingestion_properties)
+                return logging.info(f"Table '{tablename}' successfully created by the following command: {create_table_command}")
+            except KustoServiceError as e:
+                raise e
 
     # Function to write and replace tables to database
     def write_replace_table(self, dataframe, tablename):
         # First drop the table (and the mapping table)
-        self.drop_table(tablename)
-        # Then create and write the data to the table
-        self.write_table(dataframe, tablename)
+        try:
+            self.drop_table(tablename)
+            self.write_table(dataframe, tablename)
+            logging.info(f"Table '{tablename}' replaced in '{self.database}'.")
+        except FileNotFoundError:
+            self.write_table(dataframe, tablename)
+            logging.info(f"Table '{tablename}' newly ingested into '{self.database}'.")

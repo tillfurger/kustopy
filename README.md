@@ -1,5 +1,8 @@
 # Getting started
+kustopy is a Python SDK for Azure Data Explorer (Kusto).
 
+[![PyPI version](https://badge.fury.io/py/kustopy.svg)](https://badge.fury.io/py/kustopy)
+[![Downloads](https://pepy.tech/badge/kustopy)](https://pepy.tech/project/kustopy)
 ## Installation and Import
 ```bash
 pip install kustopy
@@ -32,7 +35,7 @@ query_client.get_table_names()
 
 ```python
 # Write kusto queries to get data into pandas dataframe
-query_client.query_to_df('SampleTable | take 100 | where fruit=="apple"')
+query_client.query_to_df(user_input='SampleTable | take 100 | where fruit=="apple"')
 ```
 
 ---
@@ -53,4 +56,17 @@ query_client = kpc.IngestionClient(cluster='https://sample.kusto.windows.net/',
                                    truncation=False)
 ```
 
-more coming ...
+```python
+# Drop table from the database
+ingestion_client.drop_table(tablename='SampleTable')
+```
+
+```python
+# Write pandas dataframe to the database. If the table exists you will get an Error.
+ingestion_client.write_table(dataframe=df, tablename='SampleTable')
+```
+
+```python
+# Write pandas dataframe to the database. If the table exists it will be replaced.
+ingestion_client.write_replace_table(dataframe=df, tablename='SampleTable')
+```
