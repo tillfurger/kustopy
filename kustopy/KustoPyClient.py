@@ -82,15 +82,14 @@ class Client:
         return columns_string, csv_mapping_string
 
     def check_if_exists(self, tablename):
-        get_tables_command = '.show tables'
-        response = self.query_client.execute_mgmt(self.database, get_tables_command)
+        response = self.query_client.execute_mgmt(self.database, '.show tables')
         table_exists = any(dataframe_from_result_table(response.primary_results[0])['TableName'] == tablename)
         return table_exists, response
 
     def get_table_folder(self, tablename):
         table_exists, response = self.check_if_exists(tablename)
         if table_exists:
-            return client.query(f'.show table {tablename} details | project Folder', dataframe=True)['Folder'][0]
+            return self.query(f'.show table {tablename} details | project Folder', dataframe=True)['Folder'][0]
         else:
             raise Exception(f"Table '{tablename}' does not exist in database '{self.database}'.")
 
