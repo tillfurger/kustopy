@@ -9,11 +9,10 @@ import pandas as pd
 
 class Client:
 
-    def __init__(self, cluster, database, client_id, client_secret, tenant_id, truncation=True):
+    def __init__(self, cluster, database, client_id, client_secret, tenant_id):
         # Define self variables
         self.cluster = cluster
         self.database = database
-        self.truncation = truncation
         self.client_id = client_id
         self.client_secret = client_secret
         self.tenant_id = tenant_id
@@ -36,31 +35,21 @@ class Client:
     # -----------------------------------------QUERY-----------------------------------------
 
     # Function to construct a database query from user input (string)
-    def construct_query(self, user_input):
+    def get_response(self, user_input):
         # If truncation is set to True the user input can be passed right trough
-        if self.truncation:
-            query = user_input
-            try:
-                response = self.query_client.execute(self.database, query)
-                return response
-            except KustoServiceError as e:
-                # If the data size is to large, kusto throws an error --> set truncation to False
-                raise Exception(
-                    f'{e} If you have a query result with data size larger than 50000000 set truncation=False in class.')
-        # Otherwise we have to set notrucation in the query
-        else:
-            try:
-                query = f'set notruncation; {user_input}'
-                response = self.query_client.execute(self.database, query)
-                return response
-            except KustoServiceError as e:
-                raise Exception(e)
+        try:
+            response = self.query_client.execute(self.database, user_input)
+            return response
+        except KustoServiceError as e:
+            raise Exception(e)
 
-    # Transform the query output in a pandas DataFrame
-    def query_to_df(self, user_input):
-        response = self.construct_query(user_input)
-        return dataframe_from_result_table(response.primary_results[0]).drop(columns=['iris_id', 'iris_metadata'],
-                                                                             errors='ignore')
+    # Post a query
+    def query(self, user_input, dataframe=True):
+        if dataframe:
+            response = self.get_response(user_input)
+            return dataframe_from_result_table(response.primary_results[0])
+        else:
+            return self.get_response(user_input)
 
     # Get a dataframe of all tables in database
     def get_table_names(self):
@@ -80,7 +69,8 @@ class Client:
                     'float': 'real',
                     'geometry': 'string',
                     'object': 'string',
-                    'int64': 'int'}
+                    'int64': 'int',
+                    'int32': 'int'}
         # Loop through each column and create respective stings
         for i, col in enumerate(dataframe.columns):
             kusto_type = type_map.get(str(dataframe[col].dtype))
@@ -97,62 +87,35 @@ class Client:
         table_exists = any(dataframe_from_result_table(response.primary_results[0])['TableName'] == tablename)
         return table_exists, response
 
+    def get_table_folder(self, tablename):
+        table_exists, response = self.check_if_exists(tablename)
+        if table_exists:
+            return client.query(f'.show table {tablename} details | project Folder', dataframe=True)['Folder'][0]
+        else:
+            raise Exception(f"Table '{tablename}' does not exist in database '{self.database}'.")
+
     # Function to drop tables from database
     def drop_table(self, tablename):
-        # Check if table exists
-        table_exists, response = self.check_if_exists(tablename)
-        # If the entered table exists, drop it
-        if table_exists:
-            try:
-                drop_mapping_table_command = f'.drop table {tablename} ingestion csv mapping "{tablename}_CSV_Mapping"'
-                response = self.query_client.execute_mgmt(self.database, drop_mapping_table_command)
-            except KustoServiceError as e:
-                logging.info('No Mapping table to delete. Continuing...')
-            try:
-                drop_table_command = f'.drop table {tablename}'
-                response = self.query_client.execute_mgmt(self.database, drop_table_command)
-                logging.info(f'Table "{tablename}" dropped from database "{self.database}".')
-            except KustoServiceError as e:
-                raise Exception(e)
-        # Else print that the table doesn't exist
-        else:
-            tables_list = dataframe_from_result_table(response.primary_results[0])['TableName'].to_list()
-            raise FileNotFoundError(
-                f"Table '{tablename}' does not exist in database '{self.database}'. Choose one of {tables_list}")
+        self.query(f'.drop table {tablename}_CSV_Mapping ifexists')
+        self.query(f'.drop table {tablename} ifexists')
 
     # Function to drop duplicates from table
     def drop_duplicates(self, tablename):
-        # Helper function to remove values from list
-        def remove_all_by_values(list_obj, values):
-            for value in values:
-                while value in list_obj:
-                    list_obj.remove(value)
-
-        # Check if table exists
-        table_exists, response = self.check_if_exists(tablename)
-        # If the entered table exists, drop it
-        if table_exists:
-            # We only want to get the distinct data to be able to get distinct data, we need to drop the two iris columns
-            columns_to_query = self.query_to_df(f'{tablename} | getschema')['ColumnName'].to_list()
-            remove_all_by_values(columns_to_query, ['iris_id', 'iris_metadata'])
-            columns_to_query = ', '.join(columns_to_query)
-            try:
-                df = self.query_to_df(f'{tablename} | distinct {columns_to_query}')
-                self.write_replace_table(df, tablename)
-            except KustoServiceError as e:
-                logging.warning(e)
-        # Else print that the table doesn't exist
+        folder = self.get_table_folder(tablename)
+        if folder == '':
+            appendix = folder
         else:
-            tables_list = dataframe_from_result_table(response.primary_results[0])['TableName'].to_list()
-            raise FileNotFoundError(
-                f"Table '{tablename}' does not exist in database '{self.database}'. Choose one of {tables_list}")
+            appendix = f'with (folder={folder})'
+        self.query(f'.set TempTable {appendix} <| {tablename} | project-away iris_* | distinct *')
+        self.query(f'.rename tables TempTable={tablename} ifexists, {tablename}=TempTable')
+        self.query('.drop table TempTable ifexists')
 
     # Function to write tables to database
-    def write_table(self, dataframe, tablename):
+    def write_table(self, dataframe, tablename, folder='KustoPyTables'):
         # Get the table creation commands
         columns_string, csv_mapping_string = self.ingestion_properties(dataframe)
-        create_table_command = f'.create table {tablename} ({columns_string})'
-        create_mapping_command = f'.create table {tablename} ingestion csv mapping \'{tablename}_CSV_Mapping\' \'[{csv_mapping_string}]\''
+        create_table_command = f'.create table {tablename} ({columns_string}) with (folder={folder})'
+        create_mapping_command = f'.create table {tablename} ingestion csv mapping \'{tablename}_CSV_Mapping\' \'[{csv_mapping_string}]\' with (folder={folder})'
         # Check if table already exists
         table_exists, response = self.check_if_exists(tablename)
         if table_exists:
@@ -176,12 +139,12 @@ class Client:
                 raise e
 
     # Function to write and replace tables to database
-    def write_replace_table(self, dataframe, tablename):
+    def write_replace_table(self, dataframe, tablename, folder='KustoPyTables'):
         # First drop the table (and the mapping table)
         try:
             self.drop_table(tablename)
-            self.write_table(dataframe, tablename)
+            self.write_table(dataframe, tablename, folder)
             logging.info(f"Table '{tablename}' replaced in '{self.database}'.")
         except FileNotFoundError:
-            self.write_table(dataframe, tablename)
+            self.write_table(dataframe, tablename, folder)
             logging.info(f"Table '{tablename}' newly ingested into '{self.database}'.")

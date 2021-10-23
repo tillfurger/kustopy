@@ -34,8 +34,8 @@ client.get_table_names()
 ```
 
 ```python
-# Write kusto queries to get data into pandas dataframe
-client.query_to_df(user_input='SampleTable | take 100 | where fruit=="apple"')
+# Write kusto queries. To get the response as pandas dataframe set dataframe to True.
+client.query(user_input='SampleTable | take 100 | where fruit=="apple"', dataframe=True)
 ```
 
 ---
@@ -54,12 +54,12 @@ client.drop_dublicates(tablename='SampleTable')
 
 ```python
 # Write pandas dataframe to the database. If the table exists you will get an Error.
-client.write_table(dataframe=df, tablename='SampleTable')
+client.write_table(dataframe=df, tablename='SampleTable', folder='Sample')
 ```
 
 ```python
 # Write pandas dataframe to the database. If the table exists it will be replaced.
-client.write_replace_table(dataframe=df, tablename='SampleTable')
+client.write_replace_table(dataframe=df, tablename='SampleTable', folder='Sample')
 ```
 
 If you want to append data to an existing table, we recommend querying the table to a pandas dataframe using
