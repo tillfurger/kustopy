@@ -1,10 +1,8 @@
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
-from azure.kusto.data import KustoConnectionStringBuilder
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties, DataFormat
 from azure.kusto.data.helpers import dataframe_from_result_table
 from azure.kusto.data.exceptions import KustoServiceError
 import logging
-import pandas as pd
 
 
 class Client:

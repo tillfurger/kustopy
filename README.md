@@ -13,11 +13,6 @@ from kustopy import KustoPyClient as kpc
 ```
 ## Client setup
 ```python
-# Get login credentials from Azure Vault
-client_id = dbutils.secrets.get(scope="ce5", key="adxClientId")
-client_secret = dbutils.secrets.get(scope="ce5", key="adxClientSecret")
-tenant_id = dbutils.secrets.get(scope="ce5", key="adxTenantId")
-
 # Set up the query client
 client = kpc.Client(cluster='https://sample.kusto.windows.net/',
                     database='confidential-satanalytics-sample',
