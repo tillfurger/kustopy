@@ -71,7 +71,10 @@ class Client:
                     'geometry': 'string',
                     'object': 'string',
                     'int64': 'int',
-                    'int32': 'int'}
+                    'int32': 'int',
+                    'Int64': 'int',
+                    'Int32': 'int'}
+
         # Loop through each column and create respective stings
         for i, col in enumerate(dataframe.columns):
             kusto_type = type_map.get(str(dataframe[col].dtype))
