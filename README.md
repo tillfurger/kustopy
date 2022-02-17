@@ -20,7 +20,7 @@ from kustopy import KustoPyClient as kpc
 ```python
 # Set up the query client
 client = kpc.Client(cluster='https://sample.kusto.windows.net/',
-                    database='confidential-satanalytics-sample',
+                    database='sample',
                     client_id=client_id,
                     client_secret=client_secret,
                     tenant_id=tenant_id,
