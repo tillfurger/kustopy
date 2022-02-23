@@ -34,12 +34,12 @@ client.get_table_names()
 ```
 ```python
 # Get list of all tables available in database
-client.get_schema(tablename='SampleTable')
+client.get_schema(table_name='SampleTable')
 ```
 
 ```python
 # Write standard kusto queries. To get the response as pandas dataframe set dataframe to True.
-client.query(user_input='SampleTable | take 100 | where fruit=="apple"', dataframe=True)
+client.query(user_input='SampleTable | take 100 | where fruit=="apple"', data_frame=True)
 ```
 
 ---
@@ -58,15 +58,15 @@ client.drop_dublicates(table_name='SampleTable')
 
 ```python
 # Write pandas or pyspark dataframe to the database. If the table exists you will get an Error.
-client.write_table(dataframe=df, table_name='SampleTable', folder='Sample')
+client.write_table(data_frame=df, table_name='SampleTable', folder='Sample')
 ```
 
 ```python
 # Write pandas or pyspark dataframe to the database. If the table exists it will be replaced, otherwise created.
-client.write_replace_table(dataframe=df, table_name='SampleTable', folder='Sample')
+client.write_replace_table(data_frame=df, table_name='SampleTable', folder='Sample')
 ```
 
 ```python
 # Write pandas or pyspark dataframe to the database. If the table exists it will be expanded, otherwise created.
-client.write_append_table(dataframe=df, table_name='SampleTable', folder='Sample')
+client.write_append_table(data_frame=df, table_name='SampleTable', folder='Sample')
 ```
