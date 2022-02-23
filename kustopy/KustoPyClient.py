@@ -81,12 +81,22 @@ class Client:
         type_map = {'float64': 'real',
                     'float32': 'real',
                     'float': 'real',
+                    'real': 'real',
+                    'double': 'real',
                     'geometry': 'string',
+                    'string': 'string',
                     'object': 'string',
                     'int64': 'int',
                     'int32': 'int',
                     'Int64': 'int',
-                    'Int32': 'int'}
+                    'Int32': 'int',
+                    'integer': 'int',
+                    'int': 'int',
+                    'bigint': 'int',
+                    'array<string>': 'dynamic',
+                    'array<int>': 'dynamic',
+                    'array<real>': 'dynamic',
+                    'array<double>': 'dynamic'}
         # Check if pandas or pyspark dataframe
         if input_datatype == 'pandas':
             # Loop through each column and create respective stings
