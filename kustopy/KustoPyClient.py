@@ -110,7 +110,7 @@ class Client:
 
     def check_if_exists(self, table_name):
         response = self.query_client.execute_mgmt(self.database, '.show tables')
-        table_exists = any(dataframe_from_result_table(response.primary_results[0])['tablename'] == table_name)
+        table_exists = any(dataframe_from_result_table(response.primary_results[0])['TableName'] == table_name)
         return table_exists, response
 
     def get_table_folder(self, table_name):
