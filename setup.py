@@ -10,7 +10,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="kustopy",
-    version="1.2.4",
+    version="1.2.5",
     description="Query and Ingestion Client for Azure using Python",
     long_description=README,
     long_description_content_type="text/markdown",

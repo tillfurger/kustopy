@@ -87,7 +87,6 @@ class Client:
                     'int32': 'int',
                     'Int64': 'int',
                     'Int32': 'int'}
-
         # Check if pandas or pyspark dataframe
         if input_datatype == 'pandas':
             # Loop through each column and create respective stings
@@ -102,7 +101,7 @@ class Client:
         else:
             # Loop through each column and create respective stings
             for i, col in enumerate(data_frame.columns):
-                kusto_type = type_map.get(data_frame.select(col).dtypes[0][1])
+                kusto_type = data_frame.select(col).dtypes[0][1]
                 columns_list.append(f'["{col}"]: {kusto_type}')
                 # Merge them to one string
             columns_string = ', '.join(columns_list)
@@ -197,7 +196,6 @@ class Client:
         input_datatype = self.get_input_type(data_frame)
         # Check if table really exists
         table_exists, response = self.check_if_exists(table_name)
-        print(table_exists)
         if table_exists:
             if input_datatype == 'pandas':
               schema_list = []
